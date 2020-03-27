@@ -1,31 +1,15 @@
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
 
-PATH = './IMG_0672.MOV'
-
-def full_video_file_procedure(file_name):
-
-	cap = cv2.VideoCapture(file_name)
-
-	if cap.isOpened() == False:
-		print('Porlems with file')
-		return None
-
-	signal = []
-	while cap.isOpened():
-		ret, frame = cap.read()
-		if ret == Flase:
-			print('THE END')
-			break
-		value = one_frame_procedure(frame)
-		signal.append(value)
-	return signal
 
 def one_frame_procedure(frame):
 	skin = detect_skin(frame)
-	value = calculate_average_green(skin)
-	return value
+	values = []
+	
+	for part in divide_into_5_parts(skin):
+		value = calculate_average_green(part)
+		values.append(value)
+	return values
 
 def detect_skin(frame):
 	min_YCrCb = np.array([0,133,77],np.uint8)
@@ -42,5 +26,18 @@ def detect_skin(frame):
 	return skin
 
 def calculate_average_green(skin):
-	
+	green_channel = skin[:, :, 1]
+	NonZero_G = green_channel[np.nonzero(green_channel)]
+	average_green = NonZero_G.mean()
+	return average_green
+
+def divide_into_5_parts(frame):
+	part_1 = frame[0:720, 0:256]
+	part_2 = frame[0:720, 256:512]
+	part_3 = frame[0:720, 512:768]
+	part_4 = frame[0:720, 768:1024]
+	part_5 = frame[0:720, 1024:1280]
+	return part_1, part_2, part_3, part_4, part_5
+
+
 
