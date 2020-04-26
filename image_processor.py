@@ -9,6 +9,7 @@ def one_frame_procedure(frame):
 	for part in divide_into_5_parts(skin):
 		value = calculate_average_green(part)
 		values.append(value)
+
 	return values
 
 def detect_skin(frame):
@@ -16,7 +17,7 @@ def detect_skin(frame):
 	max_YCrCb = np.array([255,173,127],np.uint8)
 	imageYCrCb = cv2.cvtColor(frame,cv2.COLOR_BGR2YCR_CB)
 	skinRegion = cv2.inRange(imageYCrCb,min_YCrCb,max_YCrCb)
-	contours, hierarchy = cv2.findContours(skinRegion.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	__, contours, hierarchy = cv2.findContours(skinRegion.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 	for i, c in enumerate(contours):
 		area = cv2.contourArea(c)
 		if area > 400000:
