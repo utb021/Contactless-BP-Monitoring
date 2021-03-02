@@ -17,13 +17,24 @@ def detect_skin(frame):
 	max_YCrCb = np.array([255,173,127],np.uint8)
 	imageYCrCb = cv2.cvtColor(frame,cv2.COLOR_BGR2YCR_CB)
 	skinRegion = cv2.inRange(imageYCrCb,min_YCrCb,max_YCrCb)
-	__, contours, hierarchy = cv2.findContours(skinRegion.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	contours, hierarchy = cv2.findContours(skinRegion.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 	for i, c in enumerate(contours):
+
 		area = cv2.contourArea(c)
 		if area > 400000:
+
+
+			cv2.drawContours(frame, contours, -1, (0, 255, 0), 3) 
+			cv2.imshow('Contours', frame) 
+			if cv2.waitKey(1) & 0xFF == ord('q'):
+				break
+
 			masked_img = frame.copy()
 			cv2.fillPoly(frame, contours, [0, 0, 0])
 			skin = masked_img - frame #skin and black background
+
+
+
 	return skin
 
 def calculate_average_green(skin):

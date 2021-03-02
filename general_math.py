@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import correlate
 
+DESCRETISATION_PERIOD = 0.033   
+
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     zi = lfilter_zi(b, a)
@@ -16,13 +18,28 @@ def butter_bandpass(lowcut, highcut, fs, order=3):
     b, a = butter(order, [low, high], btype='band')
     return b, a
 
-def get_fourier_result (signal, period):
-    complex_four = np.fft.fft(signal)
-    spectra = np.absolute(complex_four)
-    freqs = []
-    for i in range(len(signal)):
-        freqs.append(1/(period*len(signal))*i)
-    return spectra, freqs
+def norm_signal(sp):
+    max = np.max(sp)
+    norm = []
+    for i in range(len(sp)):
+        norm.append(sp[i] / max)
+    return norm
+
+def full_signals_procedure(ch1, ch2):
+    ch1 = butter_bandpass_filter(ch1, 0.5, 2.5, 30, 3)
+    ch2 = butter_bandpass_filter(ch2, 0.5, 2.5, 30, 3)
+    ch1 = norm_signal(ch1)
+    ch2 = norm_signal(ch2)
+    # get_spectra(sig1)
+    sh = get_phase_shift(ch1, ch2)
+    print(sh)
+    return ch1, ch2, sh
+
+def get_phase_shift(sig1, sig2):
+    cross_corr = correlate(sig2, sig1, 'full', 'direct')
+    shift = np.argmax(cross_corr) - len(sig1)
+    return shift*DESCRETISATION_PERIOD
+
 
 # def plot_spectrum(signal):
 # 	time_old = np.arange(0, len(signal)/30, 1/30)
