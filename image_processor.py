@@ -1,55 +1,128 @@
-import numpy as np
 import cv2
+import numpy as np
 
 
-def one_frame_procedure(frame):
+def full_frame_procedure(frame, N):
+
+	one_frame_values = []
+
 	skin = detect_skin(frame)
-	values = []
 	
-	for part in divide_into_5_parts(skin):
-		value = calculate_average_green(part)
-		values.append(value)
+	segmented_parts = frame_2_part_segmentor(skin, N)
 
-	return values
+	for segment in segmented_parts:
+		val = get_1vpg_val(segment)
+		one_frame_values.append(val)
+
+	center_roi = get_center_roi(skin)
+	center_roi_val = get_1vpg_val(center_roi)
+
+	return one_frame_values, skin, center_roi_val, segmented_parts, center_roi
+
 
 def detect_skin(frame):
-	min_YCrCb = np.array([0,133,77],np.uint8)
-	max_YCrCb = np.array([255,173,127],np.uint8)
-	imageYCrCb = cv2.cvtColor(frame,cv2.COLOR_BGR2YCR_CB)
-	skinRegion = cv2.inRange(imageYCrCb,min_YCrCb,max_YCrCb)
-	contours, hierarchy = cv2.findContours(skinRegion.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-	for i, c in enumerate(contours):
-
-		area = cv2.contourArea(c)
-		if area > 400000:
-
-
-			cv2.drawContours(frame, contours, -1, (0, 255, 0), 3) 
-			cv2.imshow('Contours', frame) 
-			if cv2.waitKey(1) & 0xFF == ord('q'):
-				break
-
-			masked_img = frame.copy()
-			cv2.fillPoly(frame, contours, [0, 0, 0])
-			skin = masked_img - frame #skin and black background
-
-
-
+	lower = np.array([0, 48, 80], dtype = "uint8")
+	upper = np.array([20, 255, 255], dtype = "uint8")
+	converted = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+	skinMask = cv2.inRange(converted, lower, upper)
+	kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11))
+	skinMask = cv2.erode(skinMask, kernel, iterations = 2)
+	skinMask = cv2.dilate(skinMask, kernel, iterations = 2)
+	skin = cv2.bitwise_and(frame, frame, mask = skinMask)
+	# cv2.imshow('converted', converted)
+	# cv2.imshow('skinMask', skinMask)
+	# cv2.waitKey(0)
+	# cv2.destroyAllWindows()
 	return skin
 
-def calculate_average_green(skin):
-	green_channel = skin[:, :, 1]
-	NonZero_G = green_channel[np.nonzero(green_channel)]
-	average_green = NonZero_G.mean()
-	return average_green
+def frame_segmentor(frame, N):
+	'''roi = image[startY:endY, startX:endX]'''
+	height = frame.shape[0]
+	width = frame.shape[1]
 
-def divide_into_5_parts(frame):
-	part_1 = frame[0:720, 0:256]
-	part_2 = frame[0:720, 256:512]
-	part_3 = frame[0:720, 512:768]
-	part_4 = frame[0:720, 768:1024]
-	part_5 = frame[0:720, 1024:1280]
-	return part_1, part_2, part_3, part_4, part_5
+	startY = 0
+	endY = height
+	startX = [i * (width/N) for i in range(N)]
+	endX = [i * (width/N) for i in range(1, N+1)]
+
+	segmented_parts = []
+	for i in range(N):
+		segmented_parts.append(frame[startY:endY, int(startX[i]):int(endX[i])])
+
+	return segmented_parts
+
+def frame_2_part_segmentor(frame, N):
+	'''returns only first and last parts'''
+	height = frame.shape[0]
+	width = frame.shape[1]
+
+	startY = 0
+	endY = height
+	endX_1 = width/N
+	startX_2 = width - (width/N)
+
+	segmented_parts = []
+
+	# first_part = frame[startY:endY, 0:int(endX_1)]
+	# second_part = frame[startY:endY,  int(startX_2):width]
+	first_part = frame[startY:endY, 100:int(endX_1)+100]
+	second_part = frame[startY:endY,  int(startX_2):width]
+	# first_part = frame[int(height/2  - (0.05*height)):int(height/2 + (0.05*height)), 0:int(0.1*width)]
+	# second_part = frame[int(height/2  - (0.05*height)):int(height/2 + (0.05*height)),  int(width - 0.1*width):int(width)]
+
+	segmented_parts.append(first_part)
+	segmented_parts.append(second_part)
+
+	return(segmented_parts)
+
+def get_1vpg_val(skin):
+	green_channel = skin[:, :, 1]
+	blue_channel = skin[:, :, 0]
+	red_channel = skin[:, :, 2]
+
+	NonZero_G = green_channel[np.nonzero(green_channel)]
+	NonZero_B = blue_channel[np.nonzero(blue_channel)]
+	NonZero_R = red_channel[np.nonzero(red_channel)]
+
+
+	one_vpg_val = NonZero_G.mean() / (NonZero_B.mean() + NonZero_R.mean())
+
+	return one_vpg_val
+
+def get_center_roi(skin):
+	# height = skin.shape[0]
+	# width = skin.shape[1]
+	# startY = 0
+	# endY = height
+	# center_roi = skin[startY:endY, int(0.4*width):int(0.6*width)]
+
+
+	height = skin.shape[0]
+	width = skin.shape[1]
+	startY = int(height/2  - (0.05*height))
+	endY = int(height/2 + (0.05*height))
+	center_roi = skin[startY:endY, int(0.45*width):int(0.55*width)]
+	return center_roi
+
+
+def get_1vpg_gray(skin):
+
+    gray = cv2.cvtColor(skin, cv2.COLOR_BGR2GRAY)
+    roi = gray
+    ## end Roi
+
+    # Find intensity (average or median or sum?)
+    rowSum = np.sum(roi, axis=0)
+    colSum = np.sum(rowSum, axis=0)
+    allSum = rowSum + colSum
+
+    intensity = np.median(np.median(allSum))
+
+    # intensity = np.mean(roi)
+    
+    return intensity
+
+
 
 
 
